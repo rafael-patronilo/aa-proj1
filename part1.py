@@ -96,6 +96,7 @@ for i, degree in enumerate(DEGREES):
     # order = np.argsort(pred[:,0])
     axs.flat[i].plot(y_eval, pred,'.', markersize=1)
     axs.flat[i].set(xlabel = "True", ylabel = "Predicted")
+    axs.flat[i].label_outer()
     axs.flat[i].plot(y_eval, y_eval)
     axs.flat[i].set_title(f"Degree {degree}" + (" (best)" if degree == best_d[0] else ""))
 
