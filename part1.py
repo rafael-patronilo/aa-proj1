@@ -58,7 +58,7 @@ for degree in DEGREES:
     val_error /= CROSS_VALIDATION_K
     train_errors.append(train_error)
     val_errors.append(val_error)
-    print(f"train: {train_error:10.4f} \t val: {val_error:10.4f}")
+    print(f"\ttrain: {train_error:10.4f}\tval: {val_error:10.4f}")
 
 # find the min validation error and the best degree
 best_d = min(zip(DEGREES, val_errors, train_errors), key=lambda x : x[1:]) 
@@ -86,18 +86,18 @@ for i, _ in enumerate(DEGREES):
 # For each degree plot predicted to true values
 x_eval = x_train #np.vstack((x_train,x_test))
 y_eval = y_train #np.vstack((y_train,y_test))
+fig, axs = plt.subplots(2, 3, sharex = True, sharey = True)
+fig.suptitle("Predicted to True Values")
 for i, degree in enumerate(DEGREES):
     poly = poly_feats[i]
     feats = poly.transform(x_eval)
-    
-    plt.figure(2 + i)
+
     pred = models[i].predict(feats)
     # order = np.argsort(pred[:,0])
-    plt.plot(pred, y_eval, '.')
-    plt.xlabel("Predicted")
-    plt.ylabel("True")
-    plt.plot(y_eval, y_eval)
-    plt.title(f"Degree {degree}" + (" (best)" if degree == best_d[0] else ""))
+    axs.flat[i].plot(y_eval, pred,'.', markersize=1)
+    axs.flat[i].set(xlabel = "True", ylabel = "Predicted")
+    axs.flat[i].plot(y_eval, y_eval)
+    axs.flat[i].set_title(f"Degree {degree}" + (" (best)" if degree == best_d[0] else ""))
 
 plt.show()
 
