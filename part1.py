@@ -42,6 +42,7 @@ y_train = scaler.fit_transform(y_train)
 y_test = scaler.transform(y_test)
 
 for degree in DEGREES:
+    print(f"Degree: {degree}")
     train_error = 0
     val_error = 0
     poly = PolynomialFeatures(degree)
@@ -57,6 +58,7 @@ for degree in DEGREES:
     val_error /= CROSS_VALIDATION_K
     train_errors.append(train_error)
     val_errors.append(val_error)
+    print(f"train: {train_error:10.4f} \t val: {val_error:10.4f}")
 
 # find the min validation error and the best degree
 best_d = min(zip(DEGREES, val_errors, train_errors), key=lambda x : x[1:]) 
@@ -84,14 +86,14 @@ for i, _ in enumerate(DEGREES):
 # For each degree plot predicted to true values
 x_eval = x_train #np.vstack((x_train,x_test))
 y_eval = y_train #np.vstack((y_train,y_test))
-order = np.argsort(y_eval[:,0])
 for i, degree in enumerate(DEGREES):
     poly = poly_feats[i]
     feats = poly.transform(x_eval)
     
     plt.figure(2 + i)
     pred = models[i].predict(feats)
-    plt.plot(y_eval[order], pred[order])
+    # order = np.argsort(pred[:,0])
+    plt.plot(pred, y_eval, '.')
     plt.xlabel("Predicted")
     plt.ylabel("True")
     plt.plot(y_eval, y_eval)
