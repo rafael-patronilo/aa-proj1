@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 DEGREES = range(1, 7)
 CROSS_VALIDATION_K = 5
+FORCE_WINDOW_SIZE=True
 
 # Calculates mean square error for
 #  a given polinomial expression on a given dataset
@@ -34,6 +35,11 @@ splits = kf.split(x_train)
 poly_feats = []
 train_errors = []
 val_errors = []
+
+# helper to create a straight slope 1 line and set plot limits
+y_range = np.empty([2])
+y_range[0] = y_train.min()
+y_range[1] = y_train.max()
 
 x_scaler = StandardScaler()
 x_train = x_scaler.fit_transform(x_train)
@@ -87,22 +93,20 @@ for i, degree in enumerate(DEGREES):
     print(f"\ttrain: {train_error:10.4f}\tval: {val_error:10.4f}")
 
     # destandardize the data for plotting
-    #plot_xt = y_scaler.inverse_transform(plot_xt)
-    #plot_xv = y_scaler.inverse_transform(plot_xv)
-    #plot_yt = y_scaler.inverse_transform(plot_yt)
-    #plot_yv = y_scaler.inverse_transform(plot_yv)
-
-    # create straight slope 1 line
-    slope1 = np.empty([2,1])
-    slope1[0,0] = min(max(plot_xt.min(), plot_yt.min()), max(plot_xv.min(), plot_yv.min()))
-    slope1[1,0] = max(min(plot_xt.max(), plot_yt.max()), min(plot_xv.max(), plot_yv.max()))
+    plot_xt = y_scaler.inverse_transform(plot_xt)
+    plot_xv = y_scaler.inverse_transform(plot_xv)
+    plot_yt = y_scaler.inverse_transform(plot_yt)
+    plot_yv = y_scaler.inverse_transform(plot_yv)
 
     # plot the data
     lt, = axs.flat[i].plot(plot_xt, plot_yt, '.b', markersize=1, label=f"train: {train_error:6.2f}")
     lv, = axs.flat[i].plot(plot_xv, plot_yv, '.r', markersize=1, label=f"  val: {val_error:6.2f}")
     axs.flat[i].legend(handles=[lt, lv])
     axs.flat[i].set(xlabel = "True", ylabel = "Predicted")
-    axs.flat[i].plot(slope1, slope1, '--g')
+    if FORCE_WINDOW_SIZE:
+        axs.flat[i].set_xlim(y_range)
+        axs.flat[i].set_ylim(y_range)
+    axs.flat[i].plot(y_range, y_range, '--g')
     axs.flat[i].set_title(f"Degree {degree}")
 
 # plot errors to degree
