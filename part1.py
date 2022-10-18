@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 
 DEGREES = range(1, 7)
 CROSS_VALIDATION_K = 5
-FORCE_WINDOW_SIZE=True
+FORCE_WINDOW_SIZE = True
+DESTANDARDIZE_TO_PLOT = True
 
 # Calculates mean square error for
 #  a given polinomial expression on a given dataset
@@ -38,8 +39,10 @@ val_errors = []
 
 # helper to create a straight slope 1 line and set plot limits
 y_range = np.empty([2])
-y_range[0] = y_train.min()
-y_range[1] = y_train.max()
+if DESTANDARDIZE_TO_PLOT:
+    # calculate range before standardizing
+    y_range[0] = y_train.min()
+    y_range[1] = y_train.max()
 
 x_scaler = StandardScaler()
 x_train = x_scaler.fit_transform(x_train)
@@ -48,7 +51,12 @@ y_scaler = StandardScaler()
 y_train = y_scaler.fit_transform(y_train)
 y_test = y_scaler.transform(y_test)
 
-fig, axs = plt.subplots(2, 3, sharex=False, sharey=False)
+if not DESTANDARDIZE_TO_PLOT:
+    # calculate range after standardizing
+    y_range[0] = y_train.min()
+    y_range[1] = y_train.max()
+
+fig, axs = plt.subplots(2, len(DEGREES)//2, sharex=False, sharey=False)
 fig.suptitle("Predicted to True Values")
 
 for i, degree in enumerate(DEGREES):
@@ -92,11 +100,12 @@ for i, degree in enumerate(DEGREES):
     val_errors.append(val_error)
     print(f"\ttrain: {train_error:10.4f}\tval: {val_error:10.4f}")
 
-    # destandardize the data for plotting
-    plot_xt = y_scaler.inverse_transform(plot_xt)
-    plot_xv = y_scaler.inverse_transform(plot_xv)
-    plot_yt = y_scaler.inverse_transform(plot_yt)
-    plot_yv = y_scaler.inverse_transform(plot_yv)
+    if DESTANDARDIZE_TO_PLOT:
+        # destandardize the data for plotting
+        plot_xt = y_scaler.inverse_transform(plot_xt)
+        plot_xv = y_scaler.inverse_transform(plot_xv)
+        plot_yt = y_scaler.inverse_transform(plot_yt)
+        plot_yv = y_scaler.inverse_transform(plot_yv)
 
     # plot the data
     lt, = axs.flat[i].plot(plot_xt, plot_yt, '.b', markersize=1, label=f"train: {train_error:6.2f}")
@@ -106,6 +115,7 @@ for i, degree in enumerate(DEGREES):
     if FORCE_WINDOW_SIZE:
         axs.flat[i].set_xlim(y_range)
         axs.flat[i].set_ylim(y_range)
+        axs.flat[i].label_outer()
     axs.flat[i].plot(y_range, y_range, '--g')
     axs.flat[i].set_title(f"Degree {degree}")
 
