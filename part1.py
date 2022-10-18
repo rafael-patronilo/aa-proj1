@@ -56,7 +56,7 @@ if not DESTANDARDIZE_TO_PLOT:
     y_range[0] = y_train.min()
     y_range[1] = y_train.max()
 
-fig, axs = plt.subplots(2, len(DEGREES)//2, sharex=False, sharey=False)
+fig, axs = plt.subplots(2, len(DEGREES)//2 + len(DEGREES)%2, sharex=False, sharey=False)
 fig.suptitle("Predicted to True Values")
 
 for i, degree in enumerate(DEGREES):
@@ -124,6 +124,7 @@ plt.yscale("log")
 plt.xlabel("Degree")
 plt.ylabel("Mean Square Error")
 plt.title("Error per Degree")
+plt.xticks(DEGREES)
 plt.legend(handles=[train_graph, val_graph])
 
 
