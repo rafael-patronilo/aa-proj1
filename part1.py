@@ -62,12 +62,10 @@ fig.suptitle("Predicted to True Values")
 for i, degree in enumerate(DEGREES):
     train_error = 0
     val_error = 0
-    tlines=0
-    vlines=0
-    plot_xt = np.empty([x_train.shape[0]*(CROSS_VALIDATION_K-1),1])
-    plot_xv = np.empty([x_train.shape[0],1])
-    plot_yt = np.empty([x_train.shape[0]*(CROSS_VALIDATION_K-1),1])
-    plot_yv = np.empty([x_train.shape[0],1])
+    plot_xt = []
+    plot_xv = []
+    plot_yt = []
+    plot_yv = []
 
     print(f"Degree: {degree}")
 
@@ -82,23 +80,22 @@ for i, degree in enumerate(DEGREES):
         train_error += mean_square_error(pred[train_idx], y_train[train_idx])
         val_error += mean_square_error(pred[val_idx], y_train[val_idx])
         # store data to plot later
-        new_tlines = tlines + y_train[train_idx].shape[0]
-        new_vlines = vlines + y_train[val_idx].shape[0]
-        plot_xt[tlines:new_tlines] = y_train[train_idx]
-        plot_xv[vlines:new_vlines] = y_train[val_idx]
-        plot_yt[tlines:new_tlines] = pred[train_idx]
-        plot_yv[vlines:new_vlines] = pred[val_idx]
-        tlines = new_tlines
-        vlines = new_vlines
-    assert tlines == plot_xt.shape[0], f"plot t not full: {tlines}/{plot_xt.shape[0]}"
-    assert vlines == plot_xv.shape[0], f"plot v not full: {vlines}/{plot_xv.shape[0]}"
-
+        plot_xt.append(y_train[train_idx])
+        plot_xv.append(y_train[val_idx])
+        plot_yt.append(pred[train_idx])
+        plot_yv.append(pred[val_idx])
     #Calculate average errors
     train_error /= CROSS_VALIDATION_K
     val_error /= CROSS_VALIDATION_K
     train_errors.append(train_error)
     val_errors.append(val_error)
     print(f"\ttrain: {train_error:10.4f}\tval: {val_error:10.4f}")
+
+    # flatten the data for plotting
+    plot_xt = np.vstack(plot_xt)
+    plot_xv = np.vstack(plot_xv)
+    plot_yt = np.vstack(plot_yt)
+    plot_yv = np.vstack(plot_yv)
 
     if DESTANDARDIZE_TO_PLOT:
         # destandardize the data for plotting
