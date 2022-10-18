@@ -4,6 +4,8 @@
 # using linear algebra rather than machine learning.
 import numpy as np
 import matplotlib.pyplot as plt
+STANDARDIZE=True
+DESTANDARDIZE_TO_PLOT=STANDARDIZE
 
 # Predict miss distance given position and velocity assuming a linear course
 def predict_alg(x):
@@ -35,13 +37,13 @@ data = np.loadtxt("SatelliteConjunctionDataRegression.csv", skiprows=1, delimite
 data = data[data[:,-1].argsort()]
 
 def mean_square_error(y, preds):
-    # standardize before calculating the error, in order for it to be comparable
-    mean = np.mean(y)
-    std = np.std(y)
-    y = (y-mean)/std
-    preds = (preds-mean)/std
     errors = (y - preds)**2
     return np.mean(errors)
+
+mean = np.mean(data, axis=0)
+std = np.std(data, axis=0)
+if STANDARDIZE:
+    data = (data-mean)/std
 
 x = data[:,:-1]
 y = data[:,[-1]]
@@ -50,5 +52,10 @@ preds = predict_alg(x)
 
 print(mean_square_error(y, preds))
 
-plt.plot(y, preds)
+if DESTANDARDIZE_TO_PLOT:
+    y = y * std[-1] + mean[-1]
+    preds = preds * std[-1] + mean[-1]
+
+plt.plot(y, preds, '.b', markersize=1)
+plt.plot(y, y, '--g')
 plt.show()
