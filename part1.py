@@ -1,3 +1,4 @@
+from math import sqrt
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
@@ -6,14 +7,8 @@ import matplotlib.pyplot as plt
 
 DEGREES = range(1, 7)
 CROSS_VALIDATION_K = 5
-FORCE_WINDOW_SIZE = True
+FORCE_WINDOW_SIZE = False
 DESTANDARDIZE_TO_PLOT = True
-
-# Calculates mean square error for
-#  a given polinomial expression on a given dataset
-def mean_square_error(pred, y):
-    error = np.mean((pred-y)**2)
-    return error
 
 
 data = np.loadtxt("SatelliteConjunctionDataRegression.csv",
@@ -30,10 +25,9 @@ kf = KFold(n_splits=CROSS_VALIDATION_K)
 
 x_train, x_test, y_train, y_test = train_test_split(
     x_data, y_data, test_size=0.2)
-del x_data, y_data
-splits = kf.split(x_train)
+del x_data, y_data # to avoid future confusion
 
-poly_feats = []
+train_feats = []
 train_errors = []
 val_errors = []
 
@@ -50,6 +44,12 @@ x_test = x_scaler.transform(x_test)
 y_scaler = StandardScaler()
 y_train = y_scaler.fit_transform(y_train)
 y_test = y_scaler.transform(y_test)
+
+# Calculates mean square error for
+#  a given polinomial expression on a given dataset
+def mean_square_error(pred, y):
+    error = np.mean((pred-y)**2)
+    return error
 
 if not DESTANDARDIZE_TO_PLOT:
     # calculate range after standardizing
@@ -71,7 +71,7 @@ for i, degree in enumerate(DEGREES):
 
     poly = PolynomialFeatures(degree)
     feats = poly.fit_transform(x_train)
-    poly_feats.append(poly)
+    train_feats.append(feats)
 
     # Crossfold validation
     for train_idx, val_idx in kf.split(x_train): 
@@ -135,17 +135,21 @@ axs.flat[i].set_title(f"Degree {best_d[0]} (best)")
 
 # train predictor on full set with best degree
 print("Obtaining best model")
-feats = poly_feats[i].transform(x_train)
-best_model = LinearRegression().fit(feats, y_train)
+best_model = LinearRegression().fit(train_feats[i], y_train)
 
 # Calculate test error
-test_feats = poly_feats[i].transform(x_test)
+test_feats = PolynomialFeatures(degree=best_d[0]).fit_transform(x_test)
 pred = best_model.predict(test_feats)
 test_error = mean_square_error(pred, y_test)
+des_test_error = sqrt(mean_square_error(
+    y_scaler.inverse_transform(pred),
+    y_scaler.inverse_transform(y_test)
+    ))
 
 # Report final results
 print(f"Best degree: {best_d[0]}")
-print(f"\tValidation Error : {best_d[1]}")
-print(f"\tTraining Error   : {best_d[2]}")
-print(f"\tTest Error       : {test_error}")
+print(f"\tValidation MSE : {best_d[1]}")
+print(f"\tTraining MSE   : {best_d[2]}")
+print(f"\tTest MSE       : {test_error}")
+print(f"Test Root Mean Square Error in meters: {des_test_error:.2f}m")
 plt.show()
