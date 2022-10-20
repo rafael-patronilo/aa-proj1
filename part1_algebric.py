@@ -2,9 +2,10 @@
 # 
 # As a curiosity, this script attempts to predict the miss distance
 # using linear algebra rather than machine learning.
+from math import sqrt
 import numpy as np
 import matplotlib.pyplot as plt
-STANDARDIZE=True
+STANDARDIZE=False
 DESTANDARDIZE_TO_PLOT=STANDARDIZE
 
 # Predict miss distance given position and velocity assuming a linear course
@@ -50,7 +51,7 @@ y = data[:,[-1]]
 
 preds = predict_alg(x)
 
-print(mean_square_error(y, preds))
+print(sqrt(mean_square_error(y, preds)))
 
 if DESTANDARDIZE_TO_PLOT:
     y = y * std[-1] + mean[-1]
