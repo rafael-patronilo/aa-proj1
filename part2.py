@@ -3,11 +3,13 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KernelDensity
 from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import accuracy_score
+from sklearn.naive_bayes import GaussianNB
 import matplotlib.pyplot as plt
 
 CROSS_VALIDATION_K = 5
 H_RANGE=np.arange(0.02, 0.62, 0.02)
+CONFIDENCE=0.95
+MC_NEMAR_CHI_SQ=3.84 #95% confidence
 
 
 train = np.loadtxt("TP1_train.tsv", delimiter="\t")
@@ -20,6 +22,10 @@ train[:,:-1] = scaler.fit_transform(train[:,:-1])
 test[:,:-1] = scaler.transform(test[:,:-1])
 
 kf = StratifiedKFold(n_splits=CROSS_VALIDATION_K)
+
+def successes(classifier, x, y):
+    pred = classifier.predict(x)
+    return np.count_nonzero(pred == y)
 
 class OurNB:
     """Our implementation of a Naive Bayes Classifier using Gaussian kernel. 
@@ -57,23 +63,15 @@ class OurNB:
             classification[new_max] = cls
         return classification
 
-    def score(self, x, y, normalize=True):
-        pred = self.predict(x)
-        #return accuracy_score(y, pred, normalize=normalize)
-        successes = np.count_nonzero(pred == y)
-        if normalize:
-            return successes / y.shape[0]
-        else:
-            return successes
+    def score(self, x, y):
+        succ = successes(self, x, y)
+        return succ / y.shape[0]
 
 train_errors = np.empty(H_RANGE.shape)
 val_errors = np.empty(H_RANGE.shape)
-classifier = None
 for i, h in enumerate(H_RANGE):
-    train_suc = 0.0
-    val_suc = 0.0
-    train_tot = 0.0
-    val_tot = 0.0
+    train_acc = 0.0
+    val_acc = 0.0
     for train_idx, val_idx in kf.split(train[:,:-1], train[:,[-1]]):
         x_train = train[train_idx,:-1]
         x_val = train[val_idx,:-1]
@@ -81,12 +79,10 @@ for i, h in enumerate(H_RANGE):
         y_val = train[val_idx,-1]
         classifier = OurNB(h)
         classifier.fit(x_train, y_train)
-        train_suc += classifier.score(x_train, y_train, normalize=False)
-        val_suc += classifier.score(x_val, y_val, normalize=False)
-        train_tot += y_train.shape[0]
-        val_tot += y_val.shape[0]
-    train_errors[i] = 1.0 - train_suc / train_tot
-    val_errors[i] = 1.0 - val_suc / val_tot
+        train_acc += classifier.score(x_train, y_train)
+        val_acc += classifier.score(x_val, y_val)
+    train_errors[i] = 1.0 - train_acc / CROSS_VALIDATION_K
+    val_errors[i] = 1.0 - val_acc / CROSS_VALIDATION_K
 train_graph, = plt.plot(H_RANGE, train_errors, "b-", label="Training")
 val_graph, = plt.plot(H_RANGE, val_errors, "r-", label="Validation")
 best_i = val_errors.argmin()
@@ -105,7 +101,126 @@ print(
     "Error rates:\n"
     f"\tTraining  :  {train_errors[best_i]*100:.2f}%\n"
     f"\tValidation:  {train_errors[best_i]*100:.2f}%\n"
-    f"\tTest      :  {test_error*100:.2f}%\n"
+    f"\tTest      :  {test_error*100:.2f}%"
+)
+
+skl_classifier = GaussianNB().fit(train[:,:-1], train[:,-1])
+skl_error = 1.0 - skl_classifier.score(test[:,:-1], test[:,-1])
+print(f"sklearn GaussianNB test error rate: {skl_error*100:.2f}%")
+print()
+
+def normal_interval(classifier, x, y):
+    """Obtains the approximate normal interval for the true error
+
+    Args:
+        classifier : the classifier to test
+        x : test features, shape (n_samples, n_features)
+        y : test classes, shape (n_samples,)
+
+    Returns:
+        (errors, difference): variables representing
+        the expected interval for the true error.
+        The true error is expected to be between errors - difference and
+        errors + difference
+    """
+    n = x.shape[0]
+    s = successes(classifier, x, y)
+    errors = n - s
+    dev = math.sqrt(n * (errors/n) * (1 - errors/n))
+    return errors, dev * (1.01 + CONFIDENCE)
+
+def normal_test(classifier1, classifier2, x, y):
+    """Compare both classifiers using approximate normal test
+
+    Args:
+        classifier1: The first classifier to test
+        classifier2: The second classifier to test
+        x: test features, shape (n_samples, n_features)
+        y: test classes, shape (n_samples,)
+
+    Returns:
+        compare: a positive value if classifier 1 is better and a 
+        negative value if classifier 2 is better. None if the test
+        could not determine which is better
+        normal_test1: the interval for the true error of classifier 1
+        normal_test2: the interval for the true error of classifier 2
+    """
+    normal_test1 = normal_interval(classifier1, x, y)
+    normal_test2 = normal_interval(classifier2, x, y)
+    compare = None
+    if normal_test1[0] + normal_test1[1] < normal_test2[0] - normal_test2[1]:
+        # 1 is better
+        compare = 1
+    elif normal_test2[0] + normal_test2[1] < normal_test1[0] - normal_test1[1]:
+        # 2 is better
+        compare = -1
+    #else: # impossible to compare
+    return compare, normal_test1, normal_test2
+        
+
+def mc_nemar_test(classifier1, classifier2, x, y):
+    """_summary_
+
+    Args:
+        classifier1: The first classifier to test
+        classifier2: The second classifier to test
+        x: test features, shape (n_samples, n_features)
+        y: test classes, shape (n_samples,)
+
+    Returns:
+        compare: a positive value if classifier 1 is better and a 
+        negative value if classifier 2 is better. None if the test
+        could not determine which is better
+        significance: the value that was obtained to determine if there
+        is a significant difference between both classifiers
+        ex1: the number of errors in the predictions of classifier 1 but not classifier 2
+        ex2: the number of errors in the predictions of classifier 2 but not classifier 1
+    """
+    errors1 = classifier1.predict(x) != y
+    errors2 = classifier2.predict(x) != y
+    # samples that aren't wrong in both classifiers
+    mask = ~(errors1 & errors2)
+    # count errors exclusive to each classifier
+    ex1 = np.count_nonzero(errors1 & mask)
+    ex2 = np.count_nonzero(errors2 & mask)
+    significance = (
+        (abs(ex1 - ex2) - 1)**2 /
+        (ex1 + ex2)
+    )
+    significant = significance >= MC_NEMAR_CHI_SQ
+    compare = -(ex1 - ex2) if significant else None
+    return compare, significance, ex1, ex2
+
+normal_compare, our_interval, skl_interval = normal_test(our_classifier, skl_classifier, test[:,:-1], test[:,-1])
+mc_nemar_compare, sig, our_errors, skl_errors = mc_nemar_test(our_classifier, skl_classifier, test[:,:-1], test[:,-1])
+
+
+
+def conclude(compare_value):
+    if compare_value == None:
+        return "undetermined"
+    elif compare_value > 0:
+        return f"OurNB({best_h:.2f})"
+    elif compare_value < 0:
+        return f"GaussianNb()"
+    else:
+        return "equivalent"
+
+
+print(
+    "Approximate Normal Test Result:\n"
+    f"\tOurNB({best_h:.2f})  : {our_interval[0]:4} ± {our_interval[1]:4.2f}\n"
+    f"\tGaussianNB() : {skl_interval[0]:4} ± {skl_interval[1]:4.2f}\n"
+    f"Best classifier: {conclude(normal_compare)}" 
+)
+print()
+
+print(
+    f"McNemar Test Result: {sig:.4f}\n"
+    "Number of errors in the predictions of exclusively each classifier\n"
+    f"\tOurNB({best_h:.2f})  : {our_errors:4}\n"
+    f"\tGaussianNB() : {skl_errors:4}\n"
+    f"Best classifier: {conclude(mc_nemar_compare)}" 
 )
 
 plt.show()
