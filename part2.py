@@ -100,7 +100,7 @@ print(
     f"Best H = {best_h:.2f}\n"
     "Error rates:\n"
     f"\tTraining  :  {train_errors[best_i]*100:.2f}%\n"
-    f"\tValidation:  {train_errors[best_i]*100:.2f}%\n"
+    f"\tValidation:  {val_errors[best_i]*100:.2f}%\n"
     f"\tTest      :  {test_error*100:.2f}%"
 )
 
